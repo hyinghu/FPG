@@ -1,0 +1,60 @@
+QuickFIX/n: An open-source FIX engine that provides a high-performance trading platform for financial institutions. It supports various FIX versions and can be used to build both sell-side and buy-side trading systems.
+
+OpenMatch: An open-source, high-performance trade matching engine designed for latency-sensitive applications. It provides a flexible architecture and supports various order types, order books, and matching algorithms.
+
+Trading-Engine: An open-source trading engine that supports limit, market, and stop orders. It's designed to handle high volumes of orders and trades and supports various order matching algorithms.
+
+Graviton: An open-source, low-latency trading platform that provides a high-performance order matching engine and a flexible trading infrastructure.
+
+Raptor Trading System: An open-source, high-performance trading platform that supports various asset classes, including equities, futures, and options. It provides a low-latency trading engine and supports FIX protocol and other industry-standard protocols.
+
+
+
+
+
+matching algorithms:
+
+Price-Time Priority: This is the most basic and widely used matching algorithm. It matches buy and sell orders based on the best price available in the order book and then on a first-come, first-served basis.
+
+Pro-Rata: This matching algorithm takes into account the quantity of each order and matches them proportionally. For example, if two orders are available at the same price, the algorithm will match them in proportion to the quantity of each order.
+
+FIFO: This algorithm matches orders based on the order in which they were placed. It matches the oldest order first, regardless of its price or quantity.
+
+Dark Pool: This algorithm is used in a type of trading venue called a "dark pool," which is designed to facilitate large orders without revealing them to the market. The algorithm matches buy and sell orders based on the midpoint of the bid-ask spread.
+
+VWAP: Volume-weighted average price (VWAP) is an algorithm used to execute large orders over time. It calculates the average price of a security over a specific time period, weighted by the trading volume during that period.
+
+
+
+
+
+
+libwebsockets: An open-source, lightweight, and flexible WebSocket library that is optimized for high-performance and low-latency applications. It supports various protocols and provides a simple API for creating WebSocket servers and clients.
+
+uWebSockets: Another open-source WebSocket library that is designed to be easy to use and highly scalable. It provides a simple and intuitive API and supports various WebSocket protocols and extensions.
+
+Boost.Asio: A C++ library that provides a network programming framework for developing high-performance and scalable applications. It supports various protocols, including WebSocket, and provides asynchronous I/O operations.
+
+Simple-WebSocket-Server: An open-source WebSocket library that provides a simple and lightweight implementation of the WebSocket protocol. It supports both server and client modes and provides a simple API for creating WebSocket applications.
+
+WebSocket++: A C++ library that provides a complete implementation of the WebSocket protocol, including support for various WebSocket extensions. It supports both server and client modes and provides a simple API for creating WebSocket applications.
+
+
+
+
+
+
+
+OpenSSL: A robust, full-featured, and widely-used open-source cryptographic library that provides support for encryption, decryption, hashing, digital signatures, and other cryptographic functions. It is a popular choice for implementing secure network protocols and applications.
+
+libsodium: An easy-to-use software library that provides a modern, high-level cryptographic API for encryption, decryption, hashing, and other cryptographic functions. It is designed to be easy to use and resistant to side-channel attacks.
+
+Crypto++: A free and open-source C++ library that provides support for various cryptographic algorithms, including encryption, decryption, hashing, and digital signatures. It is a popular choice for implementing secure protocols and applications.
+
+Botan: A portable, easy-to-use, and efficient C++ library that provides support for various cryptographic algorithms, including encryption, decryption, hashing, and digital signatures. It is designed to be easy to use and resistant to side-channel attacks.
+
+GnuPG: A complete and free implementation of the OpenPGP standard that provides support for encryption, decryption, digital signatures, and other cryptographic functions. It is a popular choice for implementing secure email and file transfer protocols.
+
+
+
+
