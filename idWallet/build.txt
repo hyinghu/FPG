@@ -1,0 +1,16 @@
+#intall cargo, then  
+
+rustup default nightly
+
+cargo build --release --examples
+
+#test
+## go to target/release/examples
+#create params.json
+	{"parties":"2", "threshold":"1"}
+#then run:	
+	sm_manager
+	gg18_keygen_client http://127.0.0.1:8001 M2key01.json "11111 11111" "announce damage viable ticket engage curious yellow ten clock finish burden orient faculty rigid smile host offer affair suffer slogan mercy another switch park"
+	gg18_keygen_client http://127.0.0.1:8013 M2key02.json "22222 11111" "announce damage viable ticket engage curious yellow ten clock finish burden orient faculty rigid smile host offer affair suffer slogan mercy another switch park"
+	gg18_keygen_client http://127.0.0.1:8001 M2key02.json 666600
+
