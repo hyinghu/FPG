@@ -1,0 +1,160 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-4fdd3b8dae3b9b3c8cfd.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "QtWallet",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint-Debug-a32295e4bae5647d417e.json",
+					"name" : "all_qmllint",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint_json::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint_json-Debug-530d309017ce51213f94.json",
+					"name" : "all_qmllint_json",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmltyperegistrations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmltyperegistrations-Debug-eedb68d825986f55fcf9.json",
+					"name" : "all_qmltyperegistrations",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet-Debug-7fdf6905b534601fee30.json",
+					"name" : "appQtWallet",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_autogen-Debug-c62ccd319985fbbc23c8.json",
+					"name" : "appQtWallet_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_autogen_timestamp_deps-Debug-0ec01247233a1582669a.json",
+					"name" : "appQtWallet_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_other_files::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_other_files-Debug-6cc7cc6b7181772236a0.json",
+					"name" : "appQtWallet_other_files",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_qmlimportscan::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_qmlimportscan-Debug-8091f48dfe707d0ea0ed.json",
+					"name" : "appQtWallet_qmlimportscan",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_qmllint::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_qmllint-Debug-d601a28ee1b2445a5473.json",
+					"name" : "appQtWallet_qmllint",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_qmllint_json::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_qmllint_json-Debug-081952fdef83d7bef2d7.json",
+					"name" : "appQtWallet_qmllint_json",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_qmltyperegistration::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_qmltyperegistration-Debug-199ebd10bb9921e446da.json",
+					"name" : "appQtWallet_qmltyperegistration",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "appQtWallet_tooling::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-appQtWallet_tooling-Debug-240001b0c987e0989585.json",
+					"name" : "appQtWallet_tooling",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug",
+		"source" : "C:/HYH/workspace/FPG/QtWallet/QtWallet"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 4
+	}
+}

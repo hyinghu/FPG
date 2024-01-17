@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/QtWallet/">
+    <file alias="Main.qml">C:/HYH/workspace/FPG/QtWallet/QtWallet/Main.qml</file>
+  </qresource>
+</RCC>
+

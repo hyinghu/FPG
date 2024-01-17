@@ -1,0 +1,14 @@
+-rootPath
+C:/HYH/workspace/FPG/QtWallet/QtWallet
+-cmake-output
+-output-file
+C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug/.qt_plugins/Qt6_QmlPlugins_Imports_appQtWallet.cmake
+-importPath
+C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug/QtWallet
+-importPath
+C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug
+-importPath
+C:/Qt/6.4.3/mingw_64/./qml
+-qrcFiles
+C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug/.rcc/qmake_QtWallet.qrc
+C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug/.rcc/appQtWallet_raw_qml_0.qrc

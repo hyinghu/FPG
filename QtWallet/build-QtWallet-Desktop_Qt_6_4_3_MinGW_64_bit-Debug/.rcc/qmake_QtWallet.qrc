@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/QtWallet">
+    <file alias="qmldir">C:/HYH/workspace/FPG/QtWallet/build-QtWallet-Desktop_Qt_6_4_3_MinGW_64_bit-Debug/QtWallet/qmldir</file>
+  </qresource>
+</RCC>
+

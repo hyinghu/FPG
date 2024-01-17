@@ -1,0 +1,5 @@
+module QtWallet
+typeinfo appQtWallet.qmltypes
+prefer :/QtWallet/
+Main 1.0 Main.qml
+
