@@ -1,3 +1,5 @@
 rustup target list
-rustup target add 
+rustup target add <target>
 cargo build --target i686-pc-windows-msvc
+
+https://docs.rs/
