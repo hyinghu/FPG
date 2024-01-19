@@ -6,8 +6,7 @@ use curv::{
         proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof,
         proofs::sigma_dlog::DLogProof, secret_sharing::feldman_vss::VerifiableSS,
     },
-    elliptic::curves::secp256_k1::{FE, GE},
-    elliptic::curves::traits::ECScalar,
+    elliptic::curves::{secp256_k1::Secp256k1, Point, Scalar},
     BigInt,
 };
 use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2018::party_i::{
@@ -15,6 +14,7 @@ use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2018::party_i::{
     SharedKeys, SignBroadcastPhase1, SignDecommitPhase1, SignKeys,
 };
 use multi_party_ecdsa::utilities::mta::*;
+use sha2::Sha256;
 
 use paillier::EncryptionKey;
 use reqwest::Client;
@@ -25,33 +25,15 @@ use common::{
     broadcast, check_sig, poll_for_broadcasts, poll_for_p2p, postb, sendp2p, Params, PartySignup,
 };
 
-
-use magic_crypt::{new_magic_crypt, MagicCryptTrait};
-
-
 #[allow(clippy::cognitive_complexity)]
 fn main() {
-    let p_data = fs::read_to_string("params.json")
-        .expect("Unable to read params, make sure config file is present in the same folder ");
-    let p_params: Params = serde_json::from_str(&p_data).unwrap();
-    let p_PARTIES: u16 = p_params.parties.parse::<u16>().unwrap();
-    let p_THRESHOLD: u16 = p_params.threshold.parse::<u16>().unwrap();
-    if p_THRESHOLD >= p_PARTIES || p_PARTIES <= 0 || p_PARTIES > 5 || p_THRESHOLD <= 0{
-        println!("{}", "params.json has incorrect settings.");
-        return;
-    }else{
-        // println!("parties: {}", p_PARTIES);
-        // println!("threshold: {}", p_THRESHOLD);
-    }
-
-
     if env::args().nth(4).is_some() {
         panic!("too many arguments")
     }
     if env::args().nth(3).is_none() {
         panic!("too few arguments")
     }
-    let message_str = env::args().nth(3).unwrap_or_else(|| "".to_string());
+    let message_str = env::args().nth(3).unwrap_or_default();
     let message = match hex::decode(message_str.clone()) {
         Ok(x) => x,
         Err(_e) => message_str.as_bytes().to_vec(),
@@ -60,38 +42,16 @@ fn main() {
     let client = Client::new();
     // delay:
     let delay = time::Duration::from_millis(25);
-
-
     // read key file
-    let mut data;
-    let name = &env::args().nth(2).unwrap();
-    let b = std::path::Path::new(&env::args().nth(2).unwrap()).exists();
-    if b{
-        data = fs::read_to_string(&env::args().nth(2).unwrap())
-            .expect("Unable to load keys, did you run keygen first? ");
-        
-        if name.ends_with(".c") {
-            data = data.split("::").next().unwrap_or("").to_string();
-
-            let mc = new_magic_crypt!("FIPASSCODE", 256);
-            data = mc.decrypt_base64_to_string(&data).unwrap();
-        }
-    }else{
-        data = env::args().nth(2).unwrap();
-    }
-
-    println!("data ====== {}", data);
-
-
-
-
+    let data = fs::read_to_string(env::args().nth(2).unwrap())
+        .expect("Unable to load keys, did you run keygen first? ");
     let (party_keys, shared_keys, party_id, vss_scheme_vec, paillier_key_vector, y_sum): (
         Keys,
         SharedKeys,
         u16,
-        Vec<VerifiableSS<GE>>,
+        Vec<VerifiableSS<Secp256k1>>,
         Vec<EncryptionKey>,
-        GE,
+        Point<Secp256k1>,
     ) = serde_json::from_str(&data).unwrap();
 
     //read parameters:
@@ -125,13 +85,13 @@ fn main() {
     );
 
     let mut j = 0;
-    let mut signers_vec: Vec<usize> = Vec::new();
+    let mut signers_vec: Vec<u16> = Vec::new();
     for i in 1..=THRESHOLD + 1 {
         if i == party_num_int {
-            signers_vec.push((party_id - 1) as usize);
+            signers_vec.push(party_id - 1);
         } else {
             let signer_j: u16 = serde_json::from_str(&round0_ans_vec[j]).unwrap();
-            signers_vec.push((signer_j - 1) as usize);
+            signers_vec.push(signer_j - 1);
             j += 1;
         }
     }
@@ -140,20 +100,20 @@ fn main() {
 
     let sign_keys = SignKeys::create(
         &private,
-        &vss_scheme_vec[signers_vec[(party_num_int - 1) as usize]],
-        signers_vec[(party_num_int - 1) as usize],
+        &vss_scheme_vec[usize::from(signers_vec[usize::from(party_num_int - 1)])],
+        signers_vec[usize::from(party_num_int - 1)],
         &signers_vec,
     );
 
     let xi_com_vec = Keys::get_commitments_to_xi(&vss_scheme_vec);
     //////////////////////////////////////////////////////////////////////////////
     let (com, decommit) = sign_keys.phase1_broadcast();
-    let (m_a_k, _) = MessageA::a(&sign_keys.k_i, &party_keys.ek);
+    let (m_a_k, _) = MessageA::a(&sign_keys.k_i, &party_keys.ek, &[]);
     assert!(broadcast(
         &client,
         party_num_int,
         "round1",
-        serde_json::to_string(&(com.clone(), m_a_k.clone())).unwrap(),
+        serde_json::to_string(&(com.clone(), m_a_k)).unwrap(),
         uuid.clone()
     )
     .is_ok());
@@ -189,22 +149,26 @@ fn main() {
 
     //////////////////////////////////////////////////////////////////////////////
     let mut m_b_gamma_send_vec: Vec<MessageB> = Vec::new();
-    let mut beta_vec: Vec<FE> = Vec::new();
+    let mut beta_vec: Vec<Scalar<Secp256k1>> = Vec::new();
     let mut m_b_w_send_vec: Vec<MessageB> = Vec::new();
-    let mut ni_vec: Vec<FE> = Vec::new();
+    let mut ni_vec: Vec<Scalar<Secp256k1>> = Vec::new();
     let mut j = 0;
     for i in 1..THRESHOLD + 2 {
         if i != party_num_int {
             let (m_b_gamma, beta_gamma, _, _) = MessageB::b(
                 &sign_keys.gamma_i,
-                &paillier_key_vector[signers_vec[(i - 1) as usize]],
+                &paillier_key_vector[usize::from(signers_vec[usize::from(i - 1)])],
                 m_a_vec[j].clone(),
-            );
+                &[],
+            )
+            .unwrap();
             let (m_b_w, beta_wi, _, _) = MessageB::b(
                 &sign_keys.w_i,
-                &paillier_key_vector[signers_vec[(i - 1) as usize]],
+                &paillier_key_vector[usize::from(signers_vec[usize::from(i - 1)])],
                 m_a_vec[j].clone(),
-            );
+                &[],
+            )
+            .unwrap();
             m_b_gamma_send_vec.push(m_b_gamma);
             m_b_w_send_vec.push(m_b_w);
             beta_vec.push(beta_gamma);
@@ -251,8 +215,8 @@ fn main() {
         //     }
     }
 
-    let mut alpha_vec: Vec<FE> = Vec::new();
-    let mut miu_vec: Vec<FE> = Vec::new();
+    let mut alpha_vec: Vec<Scalar<Secp256k1>> = Vec::new();
+    let mut miu_vec: Vec<Scalar<Secp256k1>> = Vec::new();
 
     let mut j = 0;
     for i in 1..THRESHOLD + 2 {
@@ -269,9 +233,9 @@ fn main() {
             alpha_vec.push(alpha_ij_gamma.0);
             miu_vec.push(alpha_ij_wi.0);
             let g_w_i = Keys::update_commitments_to_xi(
-                &xi_com_vec[signers_vec[(i - 1) as usize]],
-                &vss_scheme_vec[signers_vec[(i - 1) as usize]],
-                signers_vec[(i - 1) as usize],
+                &xi_com_vec[usize::from(signers_vec[usize::from(i - 1)])],
+                &vss_scheme_vec[usize::from(signers_vec[usize::from(i - 1)])],
+                signers_vec[usize::from(i - 1)],
                 &signers_vec,
             );
             assert_eq!(m_b.b_proof.pk, g_w_i);
@@ -298,7 +262,7 @@ fn main() {
         "round3",
         uuid.clone(),
     );
-    let mut delta_vec: Vec<FE> = Vec::new();
+    let mut delta_vec: Vec<Scalar<Secp256k1>> = Vec::new();
     format_vec_from_reads(
         &round3_ans_vec,
         party_num_int as usize,
@@ -333,11 +297,11 @@ fn main() {
         decommit,
         &mut decommit_vec,
     );
-    let decomm_i = decommit_vec.remove((party_num_int - 1) as usize);
-    bc1_vec.remove((party_num_int - 1) as usize);
+    let decomm_i = decommit_vec.remove(usize::from(party_num_int - 1));
+    bc1_vec.remove(usize::from(party_num_int - 1));
     let b_proof_vec = (0..m_b_gamma_rec_vec.len())
         .map(|i| &m_b_gamma_rec_vec[i].b_proof)
-        .collect::<Vec<&DLogProof<GE>>>();
+        .collect::<Vec<&DLogProof<Secp256k1, Sha256>>>();
     let R = SignKeys::phase4(&delta_inv, &b_proof_vec, decommit_vec, &bc1_vec)
         .expect("bad gamma_i decommit");
 
@@ -403,32 +367,28 @@ fn main() {
 
     let mut decommit5a_and_elgamal_and_dlog_vec: Vec<(
         Phase5ADecom1,
-        HomoELGamalProof<GE>,
-        DLogProof<GE>,
+        HomoELGamalProof<Secp256k1, Sha256>,
+        DLogProof<Secp256k1, Sha256>,
     )> = Vec::new();
     format_vec_from_reads(
         &round6_ans_vec,
         party_num_int as usize,
-        (
-            phase_5a_decom.clone(),
-            helgamal_proof.clone(),
-            dlog_proof_rho.clone(),
-        ),
+        (phase_5a_decom.clone(), helgamal_proof, dlog_proof_rho),
         &mut decommit5a_and_elgamal_and_dlog_vec,
     );
     let decommit5a_and_elgamal_and_dlog_vec_includes_i =
         decommit5a_and_elgamal_and_dlog_vec.clone();
-    decommit5a_and_elgamal_and_dlog_vec.remove((party_num_int - 1) as usize);
-    commit5a_vec.remove((party_num_int - 1) as usize);
+    decommit5a_and_elgamal_and_dlog_vec.remove(usize::from(party_num_int - 1));
+    commit5a_vec.remove(usize::from(party_num_int - 1));
     let phase_5a_decomm_vec = (0..THRESHOLD)
         .map(|i| decommit5a_and_elgamal_and_dlog_vec[i as usize].0.clone())
         .collect::<Vec<Phase5ADecom1>>();
     let phase_5a_elgamal_vec = (0..THRESHOLD)
         .map(|i| decommit5a_and_elgamal_and_dlog_vec[i as usize].1.clone())
-        .collect::<Vec<HomoELGamalProof<GE>>>();
+        .collect::<Vec<HomoELGamalProof<Secp256k1, Sha256>>>();
     let phase_5a_dlog_vec = (0..THRESHOLD)
         .map(|i| decommit5a_and_elgamal_and_dlog_vec[i as usize].2.clone())
-        .collect::<Vec<DLogProof<GE>>>();
+        .collect::<Vec<DLogProof<Secp256k1, Sha256>>>();
     let (phase5_com2, phase_5d_decom2) = local_sig
         .phase5c(
             &phase_5a_decomm_vec,
@@ -488,7 +448,7 @@ fn main() {
     format_vec_from_reads(
         &round8_ans_vec,
         party_num_int as usize,
-        phase_5d_decom2.clone(),
+        phase_5d_decom2,
         &mut decommit5d_vec,
     );
 
@@ -516,39 +476,33 @@ fn main() {
         uuid.clone()
     )
     .is_ok());
-    let round9_ans_vec = poll_for_broadcasts(
-        &client,
-        party_num_int,
-        THRESHOLD + 1,
-        delay,
-        "round9",
-        uuid.clone(),
-    );
+    let round9_ans_vec =
+        poll_for_broadcasts(&client, party_num_int, THRESHOLD + 1, delay, "round9", uuid);
 
-    let mut s_i_vec: Vec<FE> = Vec::new();
+    let mut s_i_vec: Vec<Scalar<Secp256k1>> = Vec::new();
     format_vec_from_reads(&round9_ans_vec, party_num_int as usize, s_i, &mut s_i_vec);
 
-    s_i_vec.remove((party_num_int - 1) as usize);
+    s_i_vec.remove(usize::from(party_num_int - 1));
     let sig = local_sig
         .output_signature(&s_i_vec)
         .expect("verification failed");
     println!("party {:?} Output Signature: \n", party_num_int);
-    println!("R: {:?}", sig.r.get_element());
-    println!("s: {:?} \n", sig.s.get_element());
+    println!("R: {:?}", sig.r);
+    println!("s: {:?} \n", sig.s);
     println!("recid: {:?} \n", sig.recid.clone());
 
     let sign_json = serde_json::to_string(&(
         "r",
-        (BigInt::from_bytes(&(sig.r.get_element())[..])).to_str_radix(16),
+        BigInt::from_bytes(sig.r.to_bytes().as_ref()).to_str_radix(16),
         "s",
-        (BigInt::from_bytes(&(sig.s.get_element())[..])).to_str_radix(16),
+        BigInt::from_bytes(sig.s.to_bytes().as_ref()).to_str_radix(16),
     ))
     .unwrap();
 
     // check sig against secp256k1
     check_sig(&sig.r, &sig.s, &message_bn, &y_sum);
 
-    fs::write("signature".to_string(), sign_json).expect("Unable to save !");
+    fs::write("signature", sign_json).expect("Unable to save !");
 }
 
 fn format_vec_from_reads<'a, T: serde::Deserialize<'a> + Clone>(
@@ -572,6 +526,6 @@ fn format_vec_from_reads<'a, T: serde::Deserialize<'a> + Clone>(
 pub fn signup(client: &Client) -> Result<PartySignup, ()> {
     let key = "signup-sign".to_string();
 
-    let res_body = postb(&client, "signupsign", key).unwrap();
+    let res_body = postb(client, "signupsign", key).unwrap();
     serde_json::from_str(&res_body).unwrap()
 }

@@ -1,0 +1,3 @@
+rustup target list
+rustup target add 
+cargo build --target i686-pc-windows-msvc

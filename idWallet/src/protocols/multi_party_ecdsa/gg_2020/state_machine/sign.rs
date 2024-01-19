@@ -32,6 +32,7 @@ use thiserror::Error;
 use crate::utilities::mta::MessageA;
 
 use crate::protocols::multi_party_ecdsa::gg_2020 as gg20;
+use curv::elliptic::curves::secp256_k1::Secp256k1;
 use gg20::party_i::{SignBroadcastPhase1, SignDecommitPhase1, SignatureRecid};
 use gg20::state_machine::keygen::LocalKey;
 
@@ -74,7 +75,7 @@ impl OfflineStage {
     /// party local secret share `local_key`.
     ///
     /// Returns error if given arguments are contradicting.
-    pub fn new(i: u16, s_l: Vec<u16>, local_key: LocalKey) -> Result<Self> {
+    pub fn new(i: u16, s_l: Vec<u16>, local_key: LocalKey<Secp256k1>) -> Result<Self> {
         if s_l.len() < 2 {
             return Err(Error::TooFewParties);
         }
@@ -89,7 +90,7 @@ impl OfflineStage {
         {
             // Check if s_l has duplicates
             let mut s_l_sorted = s_l.clone();
-            s_l_sorted.sort();
+            s_l_sorted.sort_unstable();
             let mut s_l_sorted_deduped = s_l_sorted.clone();
             s_l_sorted_deduped.dedup();
 
@@ -436,6 +437,32 @@ impl StateMachine for OfflineStage {
     }
 }
 
+impl super::traits::RoundBlame for OfflineStage {
+    /// RoundBlame returns number of unwilling parties and a vector of their party indexes.
+    fn round_blame(&self) -> (u16, Vec<u16>) {
+        let store1_blame = self.msgs1.as_ref().map(|s| s.blame()).unwrap_or_default();
+        let store2_blame = self.msgs2.as_ref().map(|s| s.blame()).unwrap_or_default();
+        let store3_blame = self.msgs3.as_ref().map(|s| s.blame()).unwrap_or_default();
+        let store4_blame = self.msgs4.as_ref().map(|s| s.blame()).unwrap_or_default();
+        let store5_blame = self.msgs5.as_ref().map(|s| s.blame()).unwrap_or_default();
+        let store6_blame = self.msgs6.as_ref().map(|s| s.blame()).unwrap_or_default();
+
+        let default = (0, vec![]);
+        match &self.round {
+            OfflineR::R0(_) => default,
+            OfflineR::R1(_) => store1_blame,
+            OfflineR::R2(_) => store2_blame,
+            OfflineR::R3(_) => store3_blame,
+            OfflineR::R4(_) => store4_blame,
+            OfflineR::R5(_) => store5_blame,
+            OfflineR::R6(_) => store6_blame,
+            OfflineR::Finished(_) => store6_blame,
+            OfflineR::Gone => default,
+        }
+    }
+}
+
+#[allow(clippy::large_enum_variant)]
 enum OfflineR {
     R0(Round0),
     R1(Round1),
@@ -452,6 +479,7 @@ enum OfflineR {
 pub struct OfflineProtocolMessage(OfflineM);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 enum OfflineM {
     M1((MessageA, SignBroadcastPhase1)),
     M2((GammaI, WI)),
@@ -593,6 +621,7 @@ impl IsCritical for Error {
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct SignManual {
     state: Round7,
 }
@@ -611,7 +640,7 @@ impl SignManual {
     /// by other parties)
     pub fn complete(self, sigs: &[PartialSignature]) -> Result<SignatureRecid, SignError> {
         self.state
-            .proceed_manual(&sigs)
+            .proceed_manual(sigs)
             .map_err(SignError::CompleteSigning)
     }
 }
@@ -627,16 +656,16 @@ pub enum SignError {
 #[cfg(test)]
 mod test {
     use curv::arithmetic::Converter;
-    use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
-    use curv::cryptographic_primitives::hashing::traits::Hash;
+    use curv::cryptographic_primitives::hashing::{Digest, DigestExt};
     use round_based::dev::Simulation;
+    use sha2::Sha256;
 
     use super::*;
     use gg20::party_i::verify;
     use gg20::state_machine::keygen::test::simulate_keygen;
 
     fn simulate_offline_stage(
-        local_keys: Vec<LocalKey>,
+        local_keys: Vec<LocalKey<Secp256k1>>,
         s_l: &[u16],
     ) -> Vec<CompletedOfflineStage> {
         let mut simulation = Simulation::new();
@@ -662,7 +691,9 @@ mod test {
     }
 
     fn simulate_signing(offline: Vec<CompletedOfflineStage>, message: &[u8]) {
-        let message = HSha256::create_hash(&[&BigInt::from_bytes(message)]);
+        let message = Sha256::new()
+            .chain_bigint(&BigInt::from_bytes(message))
+            .result_bigint();
         let pk = offline[0].public_key().clone();
 
         let parties = offline
@@ -720,7 +751,7 @@ mod test {
         simulate_signing(offline_stage, b"ZenGo");
         let offline_stage = simulate_offline_stage(local_keys.clone(), &[1, 3]);
         simulate_signing(offline_stage, b"ZenGo");
-        let offline_stage = simulate_offline_stage(local_keys.clone(), &[2, 3]);
+        let offline_stage = simulate_offline_stage(local_keys, &[2, 3]);
         simulate_signing(offline_stage, b"ZenGo");
     }
 
