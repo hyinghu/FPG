@@ -1,9 +1,12 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+#![allow(non_snake_case)]
+
 use std::collections::HashMap;
 use std::fs;
 use std::sync::RwLock;
 
-use rocket::serde::json::Json;
 use rocket::{post, routes, State};
+use rocket_contrib::json::Json;
 use uuid::Uuid;
 
 mod common;
@@ -11,7 +14,7 @@ use common::{Entry, Index, Key, Params, PartySignup};
 
 #[post("/get", format = "json", data = "<request>")]
 fn get(
-    db_mtx: &State<RwLock<HashMap<Key, String>>>,
+    db_mtx: State<RwLock<HashMap<Key, String>>>,
     request: Json<Index>,
 ) -> Json<Result<Entry, ()>> {
     let index: Index = request.0;
@@ -20,7 +23,7 @@ fn get(
         Some(v) => {
             let entry = Entry {
                 key: index.key,
-                value: v.clone(),
+                value: v.clone().to_string(),
             };
             Json(Ok(entry))
         }
@@ -29,15 +32,15 @@ fn get(
 }
 
 #[post("/set", format = "json", data = "<request>")]
-fn set(db_mtx: &State<RwLock<HashMap<Key, String>>>, request: Json<Entry>) -> Json<Result<(), ()>> {
+fn set(db_mtx: State<RwLock<HashMap<Key, String>>>, request: Json<Entry>) -> Json<Result<(), ()>> {
     let entry: Entry = request.0;
     let mut hm = db_mtx.write().unwrap();
-    hm.insert(entry.key.clone(), entry.value);
+    hm.insert(entry.key.clone(), entry.value.clone());
     Json(Ok(()))
 }
 
 #[post("/signupkeygen", format = "json")]
-fn signup_keygen(db_mtx: &State<RwLock<HashMap<Key, String>>>) -> Json<Result<PartySignup, ()>> {
+fn signup_keygen(db_mtx: State<RwLock<HashMap<Key, String>>>) -> Json<Result<PartySignup, ()>> {
     let data = fs::read_to_string("params.json")
         .expect("Unable to read params, make sure config file is present in the same folder ");
     let params: Params = serde_json::from_str(&data).unwrap();
@@ -48,7 +51,7 @@ fn signup_keygen(db_mtx: &State<RwLock<HashMap<Key, String>>>) -> Json<Result<Pa
     let party_signup = {
         let hm = db_mtx.read().unwrap();
         let value = hm.get(&key).unwrap();
-        let client_signup: PartySignup = serde_json::from_str(value).unwrap();
+        let client_signup: PartySignup = serde_json::from_str(&value).unwrap();
         if client_signup.number < parties {
             PartySignup {
                 number: client_signup.number + 1,
@@ -68,7 +71,7 @@ fn signup_keygen(db_mtx: &State<RwLock<HashMap<Key, String>>>) -> Json<Result<Pa
 }
 
 #[post("/signupsign", format = "json")]
-fn signup_sign(db_mtx: &State<RwLock<HashMap<Key, String>>>) -> Json<Result<PartySignup, ()>> {
+fn signup_sign(db_mtx: State<RwLock<HashMap<Key, String>>>) -> Json<Result<PartySignup, ()>> {
     //read parameters:
     let data = fs::read_to_string("params.json")
         .expect("Unable to read params, make sure config file is present in the same folder ");
@@ -79,7 +82,7 @@ fn signup_sign(db_mtx: &State<RwLock<HashMap<Key, String>>>) -> Json<Result<Part
     let party_signup = {
         let hm = db_mtx.read().unwrap();
         let value = hm.get(&key).unwrap();
-        let client_signup: PartySignup = serde_json::from_str(value).unwrap();
+        let client_signup: PartySignup = serde_json::from_str(&value).unwrap();
         if client_signup.number < threshold + 1 {
             PartySignup {
                 number: client_signup.number + 1,
@@ -98,8 +101,22 @@ fn signup_sign(db_mtx: &State<RwLock<HashMap<Key, String>>>) -> Json<Result<Part
     Json(Ok(party_signup))
 }
 
-#[tokio::main]
-async fn main() {
+//refcell, arc
+
+fn main() {
+    let p_data = fs::read_to_string("params.json")
+        .expect("Unable to read params, make sure config file is present in the same folder ");
+    let p_params: Params = serde_json::from_str(&p_data).unwrap();
+    let p_PARTIES: u16 = p_params.parties.parse::<u16>().unwrap();
+    let p_THRESHOLD: u16 = p_params.threshold.parse::<u16>().unwrap();
+    if p_THRESHOLD >= p_PARTIES || p_PARTIES <= 0 || p_PARTIES > 5 || p_THRESHOLD <= 0{
+        println!("{}", "params.json has incorrect settings.");
+        return;
+    }else{
+        println!("parties: {}", p_PARTIES);
+        println!("threshold: {}", p_THRESHOLD);
+    }
+
     // let mut my_config = Config::development();
     // my_config.set_port(18001);
     let db: HashMap<Key, String> = HashMap::new();
@@ -134,10 +151,8 @@ async fn main() {
         hm.insert(sign_key, serde_json::to_string(&party_signup_sign).unwrap());
     }
     /////////////////////////////////////////////////////////////////
-    rocket::build()
+    rocket::ignite()
         .mount("/", routes![get, set, signup_keygen, signup_sign])
         .manage(db_mtx)
-        .launch()
-        .await
-        .unwrap();
+        .launch();
 }

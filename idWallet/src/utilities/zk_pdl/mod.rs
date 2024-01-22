@@ -25,35 +25,27 @@ use std::ops::Shl;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
-use curv::elliptic::curves::{secp256_k1::Secp256k1, Point, Scalar};
+use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::elliptic::curves::traits::ECPoint;
+use curv::elliptic::curves::traits::ECScalar;
 use curv::BigInt;
 use paillier::Paillier;
 use paillier::{Add, Decrypt, Encrypt, Mul};
 use paillier::{DecryptionKey, EncryptionKey, RawCiphertext, RawPlaintext};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
-use thiserror::Error;
-use zk_paillier::zkproofs::IncorrectProof;
+use zk_paillier::zkproofs::RangeProofError;
 use zk_paillier::zkproofs::RangeProofNi;
-
-#[derive(Error, Debug)]
-pub enum ZkPdlError {
-    #[error("zk pdl message2 failed")]
-    Message2,
-    #[error("zk pdl finalize failed")]
-    Finalize,
-}
 
 #[derive(Clone)]
 pub struct PDLStatement {
     pub ciphertext: BigInt,
     pub ek: EncryptionKey,
-    pub Q: Point<Secp256k1>,
-    pub G: Point<Secp256k1>,
+    pub Q: GE,
+    pub G: GE,
 }
 #[derive(Clone)]
 pub struct PDLWitness {
-    pub x: Scalar<Secp256k1>,
+    pub x: FE,
     pub r: BigInt,
     pub dk: DecryptionKey,
 }
@@ -65,7 +57,7 @@ pub struct PDLVerifierState {
     a: BigInt,
     b: BigInt,
     blindness: BigInt,
-    q_tag: Point<Secp256k1>,
+    q_tag: GE,
     c_hat: BigInt,
 }
 
@@ -96,7 +88,7 @@ pub struct PDLVerifierSecondMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PDLProverDecommit {
-    pub q_hat: Point<Secp256k1>,
+    pub q_hat: GE,
     pub blindness: BigInt,
 }
 
@@ -110,12 +102,12 @@ pub struct Verifier {}
 
 impl Verifier {
     pub fn message1(statement: &PDLStatement) -> (PDLVerifierFirstMessage, PDLVerifierState) {
-        let a_fe = Scalar::<Secp256k1>::random();
-        let a = a_fe.to_bigint();
-        let q = Scalar::<Secp256k1>::group_order();
+        let a_fe: FE = ECScalar::new_random();
+        let a = a_fe.to_big_int();
+        let q = FE::q();
         let q_sq = q.pow(2);
         let b = BigInt::sample_below(&q_sq);
-        let b_fe = Scalar::<Secp256k1>::from(&b);
+        let b_fe: FE = ECScalar::from(&b);
         let b_enc = Paillier::encrypt(&statement.ek, RawPlaintext::from(b.clone()));
         let ac = Paillier::mul(
             &statement.ek,
@@ -124,11 +116,10 @@ impl Verifier {
         );
         let c_tag = Paillier::add(&statement.ek, ac, b_enc).0.into_owned();
         let ab_concat = a.clone() + b.clone().shl(a.bit_length());
-        let blindness = BigInt::sample_below(q);
-        let c_tag_tag = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-            &ab_concat, &blindness,
-        );
-        let q_tag = &statement.Q * &a_fe + &statement.G * b_fe;
+        let blindness = BigInt::sample_below(&q);
+        let c_tag_tag =
+            HashCommitment::create_commitment_with_user_defined_randomness(&ab_concat, &blindness);
+        let q_tag = &statement.Q * &a_fe + statement.G * b_fe;
 
         (
             PDLVerifierFirstMessage {
@@ -151,19 +142,19 @@ impl Verifier {
         prover_first_messasge: &PDLProverFirstMessage,
         statement: &PDLStatement,
         state: &mut PDLVerifierState,
-    ) -> Result<PDLVerifierSecondMessage, ZkPdlError> {
+    ) -> Result<PDLVerifierSecondMessage, ()> {
         let decommit_message = PDLVerifierSecondMessage {
             a: state.a.clone(),
             b: state.b.clone(),
             blindness: state.blindness.clone(),
         };
         let range_proof_is_ok =
-            verify_range_proof(statement, &prover_first_messasge.range_proof).is_ok();
+            verify_range_proof(&statement, &prover_first_messasge.range_proof).is_ok();
         state.c_hat = prover_first_messasge.c_hat.clone();
         if range_proof_is_ok {
             Ok(decommit_message)
         } else {
-            Err(ZkPdlError::Message2)
+            Err(())
         }
     }
 
@@ -171,18 +162,21 @@ impl Verifier {
         prover_first_message: &PDLProverFirstMessage,
         prover_second_message: &PDLProverSecondMessage,
         state: &PDLVerifierState,
-    ) -> Result<(), ZkPdlError> {
-        let c_hat_test = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-            &BigInt::from_bytes(prover_second_message.decommit.q_hat.to_bytes(true).as_ref()),
+    ) -> Result<(), ()> {
+        let c_hat_test = HashCommitment::create_commitment_with_user_defined_randomness(
+            &prover_second_message
+                .decommit
+                .q_hat
+                .bytes_compressed_to_big_int(),
             &prover_second_message.decommit.blindness,
         );
 
-        if prover_first_message.c_hat == c_hat_test
-            && prover_second_message.decommit.q_hat == state.q_tag
+        if &prover_first_message.c_hat == &c_hat_test
+            && &prover_second_message.decommit.q_hat == &state.q_tag
         {
             Ok(())
         } else {
-            Err(ZkPdlError::Finalize)
+            Err(())
         }
     }
 }
@@ -194,12 +188,12 @@ impl Prover {
         verifier_first_message: &PDLVerifierFirstMessage,
     ) -> (PDLProverFirstMessage, PDLProverState) {
         let c_tag = verifier_first_message.c_tag.clone();
-        let alpha = Paillier::decrypt(&witness.dk, &RawCiphertext::from(c_tag));
-        let alpha_fe = Scalar::<Secp256k1>::from(alpha.0.as_ref());
-        let q_hat = &statement.G * alpha_fe;
-        let blindness = BigInt::sample_below(Scalar::<Secp256k1>::group_order());
-        let c_hat = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-            &BigInt::from_bytes(q_hat.to_bytes(true).as_ref()),
+        let alpha = Paillier::decrypt(&witness.dk, &RawCiphertext::from(c_tag.clone()));
+        let alpha_fe: FE = ECScalar::from(&alpha.0);
+        let q_hat = statement.G * alpha_fe;
+        let blindness = BigInt::sample_below(&FE::q());
+        let c_hat = HashCommitment::create_commitment_with_user_defined_randomness(
+            &q_hat.bytes_compressed_to_big_int(),
             &blindness,
         );
         // in parallel generate range proof:
@@ -218,25 +212,24 @@ impl Prover {
         verifier_second_message: &PDLVerifierSecondMessage,
         witness: &PDLWitness,
         state: &PDLProverState,
-    ) -> Result<PDLProverSecondMessage, ZkPdlError> {
+    ) -> Result<PDLProverSecondMessage, ()> {
         let ab_concat = &verifier_second_message.a
             + verifier_second_message
                 .b
                 .clone()
                 .shl(verifier_second_message.a.bit_length()); // b|a (in the paper it is a|b)
-        let c_tag_tag_test =
-            HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-                &ab_concat,
-                &verifier_second_message.blindness,
-            );
-        let ax1 = &verifier_second_message.a * witness.x.to_bigint();
+        let c_tag_tag_test = HashCommitment::create_commitment_with_user_defined_randomness(
+            &ab_concat,
+            &verifier_second_message.blindness,
+        );
+        let ax1 = &verifier_second_message.a * witness.x.to_big_int();
         let alpha_test = ax1 + &verifier_second_message.b;
-        if alpha_test == state.alpha && verifier_first_message.c_tag_tag == c_tag_tag_test {
+        if &alpha_test == &state.alpha && verifier_first_message.c_tag_tag == c_tag_tag_test {
             Ok(PDLProverSecondMessage {
                 decommit: state.decommit.clone(),
             })
         } else {
-            Err(ZkPdlError::Message2)
+            Err(())
         }
     }
 }
@@ -244,9 +237,9 @@ impl Prover {
 fn generate_range_proof(statement: &PDLStatement, witness: &PDLWitness) -> RangeProofNi {
     RangeProofNi::prove(
         &statement.ek,
-        Scalar::<Secp256k1>::group_order(),
+        &FE::q(),
         &statement.ciphertext,
-        &witness.x.to_bigint(),
+        &witness.x.to_big_int(),
         &witness.r,
     )
 }
@@ -254,7 +247,7 @@ fn generate_range_proof(statement: &PDLStatement, witness: &PDLWitness) -> Range
 fn verify_range_proof(
     statement: &PDLStatement,
     range_proof: &RangeProofNi,
-) -> Result<(), IncorrectProof> {
+) -> Result<(), RangeProofError> {
     range_proof.verify(&statement.ek, &statement.ciphertext)
 }
 
