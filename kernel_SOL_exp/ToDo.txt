@@ -1,0 +1,4 @@
+1. setup Solana with testnet on mac
+2. test APIs
+3. test APIs with go
+4. create trans using go
