@@ -24,34 +24,52 @@ use common::{
     PartySignup, AEAD, AES_KEY_BYTES_LEN,
 };
 
-
-use multi_party_ecdsa::bw::account::{MasterAccount, MasterKeyEntropy};
-use multi_party_ecdsa::bw::mnemonic::Mnemonic;
 use bitcoin::{
     network::constants::Network,
     util::bip32::{ChildNumber, ExtendedPrivKey, ExtendedPubKey},
     PrivateKey, PublicKey,
 };
+use multi_party_ecdsa::bw::account::{MasterAccount, MasterKeyEntropy};
+use multi_party_ecdsa::bw::mnemonic::Mnemonic;
 
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
 
 use std::fs::OpenOptions;
 use std::io::Write;
 
+use clap::{command, Arg};
+
+fn kg_help() {
+    let match_result = command!()
+        .about("Keygen Usage: ")
+        .arg(
+            Arg::new("sm_manager")
+                .long("sm_manager")
+                .aliases(["smm", "sm"])
+                .required(true)
+                .help("sm manager url"),
+        )
+        .arg(Arg::new("output").short('o'))
+        .arg(Arg::new("token").short('t'))
+        .arg(Arg::new("mnemonic").short('m'))
+        .get_matches();
+}
+
 fn main() {
+    kg_help();
+
     let p_data = fs::read_to_string("params.json")
         .expect("Unable to read params, make sure config file is present in the same folder ");
     let p_params: Params = serde_json::from_str(&p_data).unwrap();
     let p_PARTIES: u16 = p_params.parties.parse::<u16>().unwrap();
     let p_THRESHOLD: u16 = p_params.threshold.parse::<u16>().unwrap();
-    if p_THRESHOLD >= p_PARTIES || p_PARTIES <= 0 || p_PARTIES > 5 || p_THRESHOLD <= 0{
+    if p_THRESHOLD >= p_PARTIES || p_PARTIES <= 0 || p_PARTIES > 5 || p_THRESHOLD <= 0 {
         println!("{}", "params.json has incorrect settings.");
         return;
-    }else{
+    } else {
         // println!("parties: {}", p_PARTIES);
         // println!("threshold: {}", p_THRESHOLD);
     }
-
 
     if env::args().len() == 2 {
         //generate random words
@@ -64,12 +82,12 @@ fn main() {
             .open("./testDataMN.txt")
             .unwrap();
 
-            //ff.write(env::args().nth(1).as_bytes()).expect("write failed for temp token");
-            //ff.write(s.clone().as_bytes()).expect("write failed for encryped string");
+        //ff.write(env::args().nth(1).as_bytes()).expect("write failed for temp token");
+        //ff.write(s.clone().as_bytes()).expect("write failed for encryped string");
 
-            writeln!(ff, "{}", env::args().nth(1).unwrap()).ok();
-            writeln!(ff, "{}", s.clone()).ok();
-            writeln!(ff,"======================================").ok();
+        writeln!(ff, "{}", env::args().nth(1).unwrap()).ok();
+        writeln!(ff, "{}", s.clone()).ok();
+        writeln!(ff, "======================================").ok();
 
         println!("{}", s);
 
@@ -80,15 +98,12 @@ fn main() {
         return;
     }
 
-
-
     if env::args().nth(6).is_some() {
         panic!("too many arguments")
     }
     if env::args().nth(3).is_none() {
         panic!("too few arguments")
     }
-
 
     //read parameters:
     let data = fs::read_to_string("params.json")
@@ -115,21 +130,18 @@ fn main() {
     // let party_keys = Keys::create(party_num_int as usize);
     //let n = BigInt::from(1855425871872_u64);
 
-
-
-
-
-    let party_keys : Keys;
+    let party_keys: Keys;
     if env::args().len() == 6 {
-        //const PASSPHRASE: &str = "correct horse battery staple";   
+        //const PASSPHRASE: &str = "correct horse battery staple";
         //let words = "announce damage viable ticket engage curious yellow ten clock finish burden orient faculty rigid smile host offer affair suffer slogan mercy another switch park";
-        let PASSPHRASE: &str = &env::args().nth(3).unwrap();   
+        let PASSPHRASE: &str = &env::args().nth(3).unwrap();
         let words = &env::args().nth(4).unwrap();
         // println!("{}", PASSPHRASE);
         // println!("{}", words);
 
         let mnemonic = Mnemonic::from_str(&words.replace("_", " ")).unwrap();
-        let master = MasterAccount::from_mnemonic(&mnemonic, 0, Network::Bitcoin, PASSPHRASE, None).unwrap();
+        let master =
+            MasterAccount::from_mnemonic(&mnemonic, 0, Network::Bitcoin, PASSPHRASE, None).unwrap();
 
         // extract seed
         let seed = master.seed(Network::Bitcoin, PASSPHRASE).unwrap();
@@ -142,8 +154,8 @@ fn main() {
         // println!("Seed == {}", sb);
 
         let s: String = sb.to_string();
-        party_keys = Keys::createFromHex(&s , party_num_int as usize);   
-    }else if env::args().len() == 5 {
+        party_keys = Keys::createFromHex(&s, party_num_int as usize);
+    } else if env::args().len() == 5 {
         let args: Vec<String> = env::args().collect();
 
         // let num = &args[3];
@@ -151,19 +163,15 @@ fn main() {
         // let i: BigInt = BigInt::from(number);
 
         let i = BigInt::from_hex(&args[3]);
-        if i.is_ok(){
-            party_keys = Keys::createFromBigInt(&i.unwrap(), party_num_int as usize); 
-        }
-        else{
+        if i.is_ok() {
+            party_keys = Keys::createFromBigInt(&i.unwrap(), party_num_int as usize);
+        } else {
             panic!("Hex error");
         }
-    }else{
-       party_keys = Keys::create(party_num_int as usize);
+    } else {
+        party_keys = Keys::create(party_num_int as usize);
     }
     //println!("party_keys = {:?}\n\n", party_keys);
-
-
-
 
     let (bc_i, decom_i) = party_keys.phase1_broadcast_phase3_proof_of_correct_key();
 
@@ -193,7 +201,10 @@ fn main() {
     bc1_vec.insert(party_num_int as usize - 1, bc_i);
 
     // send ephemeral public keys and check commitments correctness
-    println!("round2 >>>> {:?}\n\n", "end ephemeral public keys and check commitments correctness");
+    println!(
+        "round2 >>>> {:?}\n\n",
+        "end ephemeral public keys and check commitments correctness"
+    );
 
     assert!(broadcast(
         &client,
@@ -385,7 +396,6 @@ fn main() {
 
     // fs::write(env::args().nth(2).unwrap(), &keygen_json).expect("Unable to save !");
 
-
     // //encrypted file
     // let mc = new_magic_crypt!("FIPASSCODE", 256);
     // let base64 = mc.encrypt_str_to_base64(&keygen_json);
@@ -393,8 +403,6 @@ fn main() {
     let mc = new_magic_crypt!(env::args().nth(4).unwrap(), 256);
     let base64 = mc.encrypt_str_to_base64(&keygen_json);
     fs::write(env::args().nth(2).unwrap(), base64).expect("Unable to save encrypted key!");
-
-
 }
 
 pub fn signup(client: &Client) -> Result<PartySignup, ()> {

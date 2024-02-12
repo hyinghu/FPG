@@ -47,6 +47,7 @@ rust-crypto = "0.2"
 
 socket2 = "0.4.4"
 tinyset = "0.4.10"
+clap = { version = "4.5.0", features = ["cargo"] }
 
 
 [dependencies.centipede]
