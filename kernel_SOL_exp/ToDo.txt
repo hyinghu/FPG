@@ -2,3 +2,12 @@
 2. test APIs
 3. test APIs with go
 4. create trans using go
+
+Post-Quantum::
+a. https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.ipd.pdf => https://github.com/integritychain/ml-dsa-rs   ?
+b. https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.205.ipd.pdf => https://github.com/integritychain/fips205   ?
+c. https://csrc.nist.gov/pubs/fips/203/ipd => https://github.com/integritychain/ml-kem-rs   ?
+
+
+ZK::
+1. https://github.com/spaceandtimelabs/blitzar
